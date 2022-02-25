@@ -79,29 +79,47 @@ const updateUI = function(acc) {
   //Display summary
   calcDisplaySummary(acc);
 };
+
+const displayMovements = function(movements, sort = false) {
+  containerMovements.innerHTML = "";
+  
+  const moves = sort ? movements.slice().sort((a,b) => a - b) : movements; 
+  
+  moves.forEach((movement,index) => {
+    let type = (movement > 0 ) ? "deposit" : "withdrawal";
+    const html = `
+    <div class="movements__row">
+    <div class="movements__type movements__type--${type}">${index + 1} ${type}</div>
+    <div class="movements__value">${movement.toFixed(2)}$</div>
+    </div>
+    `;
+    
+    containerMovements.insertAdjacentHTML("afterbegin", html);
+  });
+};
 //--------DISPLAYS CALC-----------//
 const calcDisplayBalance = function(acc) {
   acc.balance = acc.movements.reduce((acc,current) => acc + current, 0);
-  labelBalance.textContent = `${acc.balance} $`;
+  labelBalance.textContent = `${acc.balance.toFixed(2)} $`;
 };
 
 const calcDisplaySummary = function(acc) {
   const incomes = acc.movements
   .filter(mov => mov > 0)
   .reduce((acc,mov) => acc + mov, 0);
-  labelSumIn.textContent = `${incomes}$`;
+  labelSumIn.textContent = `${incomes.toFixed(2)}$`;
   
   const out = acc.movements
   .filter(mov => mov < 0)
   .reduce((acc,mov) => acc + mov, 0);
-  labelSumOut.textContent = `${Math.abs(out)}$`;
+  labelSumOut.textContent = `${Math.abs(out).toFixed(2)}$`;
   
   const interest = acc.movements
   .filter(move => move > 0)
   .map(deposit => deposit * acc.interestRate / 100)
   .filter((int) => int >= 1)
   .reduce((acc, int) => acc + int, 0);
-  labelSumInterest.textContent = `${interest}$`;
+  labelSumInterest.textContent = `${interest.toFixed(2)}$`;
 };
 
 //--------USER STATE-----------//
@@ -112,7 +130,7 @@ let sorted = false;
 btnLogin.addEventListener("click", (e) => {
   e.preventDefault();
   currentAccount = accounts.find(acc => acc.username === inputLoginUsername.value);
-  if (currentAccount?.pin === Number(inputLoginPin.value)){
+  if (currentAccount?.pin === +inputLoginPin.value){
     //Display UI and message
     labelWelcome.textContent = `Welcome back ${currentAccount.owner.split(" ")[0]}`;
     containerApp.style.opacity = 100;
@@ -126,27 +144,9 @@ btnLogin.addEventListener("click", (e) => {
   };
 });
 
-const displayMovements = function(movements, sort = false) {
-  containerMovements.innerHTML = "";
-  
-  const moves = sort ? movements.slice().sort((a,b) => a - b) : movements; 
-  
-  moves.forEach((movement,index) => {
-    let type = (movement > 0 ) ? "deposit" : "withdrawal";
-    const html = `
-    <div class="movements__row">
-    <div class="movements__type movements__type--${type}">${index + 1} ${type}</div>
-    <div class="movements__value">${movement}$</div>
-    </div>
-    `;
-    
-    containerMovements.insertAdjacentHTML("afterbegin", html);
-  });
-};
-
 btnTransfer.addEventListener("click", (e) => {
   e.preventDefault();
-  const amount = Number(inputTransferAmount.value);
+  const amount = +inputTransferAmount.value;
   const receiverAcc = accounts.find(acc => acc.username === inputTransferTo.value);
   
   if (amount > 0 && receiverAcc && currentAccount.balance >= amount && receiverAcc?.username !== currentAccount.username){
@@ -161,7 +161,7 @@ btnTransfer.addEventListener("click", (e) => {
 
 btnLoan.addEventListener("click",(e) => {
   e.preventDefault();
-  const loanAmount = Number(inputLoanAmount.value);
+  const loanAmount = Math.floor(inputLoanAmount.value);
 
   if (loanAmount > 0 && currentAccount.movements.some(move => move >= loanAmount / 10)){
     //Add movement
@@ -176,7 +176,7 @@ btnLoan.addEventListener("click",(e) => {
 
 btnClose.addEventListener("click",(e) => {
   e.preventDefault();
-  if (currentAccount.pin === Number(inputClosePin.value) && currentAccount.username === inputCloseUsername.value) {
+  if (currentAccount.pin === +inputClosePin.value && currentAccount.username === inputCloseUsername.value) {
     let i = accounts.findIndex(acc => acc.username === currentAccount.username);
     //Delete account
     accounts.splice(i,1);
