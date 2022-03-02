@@ -1,10 +1,10 @@
 'use strict';
-// BANKIST APP
-// Data
+//---------BANKIST APP---------//
+// DATA
 const account1 = {
   owner: 'Alejandro Quiñones Caicedo',
   movements: [200, 450, -400, 3000, -650, -130, 70, 1300],
-  interestRate: 1.2, // %
+  interestRate: 1.2,
   pin: 8277,
 
   movementsDates: [
@@ -18,7 +18,7 @@ const account1 = {
     '2022-02-23T10:51:36.790Z',
   ],
   currency: 'EUR',
-  locale: 'pt-PT', // de-DE
+  locale: "pt-PT",
 };
 
 const account2 = {
@@ -38,7 +38,7 @@ const account2 = {
     '2022-02-24T12:01:20.894Z',
   ],
   currency: 'USD',
-  locale: 'en-US',
+  locale: "en-US",
 };
 
 const account3 = {
@@ -57,6 +57,8 @@ const account3 = {
     '2022-01-31T14:18:46.235Z',
     '2022-02-22T16:33:06.386Z',
   ],
+  currency: 'COP',
+  locale: navigator.locale,
 };
 
 const account4 = {
@@ -74,7 +76,9 @@ const account4 = {
     '2022-02-17T16:33:06.386Z',
     '2022-02-23T14:43:26.374Z',
     '2022-02-24T18:49:59.371Z',
-  ]
+  ],
+  currency: 'COP',
+  locale: navigator.locale,
 };
 
 const accounts = [account1, account2, account3, account4];
@@ -129,28 +133,36 @@ const updateUI = function(acc) {
 };
 
 //--------FUNCTIONS-----------//
+const formatCur = function(value, locale, currency) {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency
+  }).format(value);
+};
+
 const calcDisplayBalance = function(acc) {
   acc.balance = acc.movements.reduce((acc,current) => acc + current, 0);
-  labelBalance.textContent = `${acc.balance.toFixed(2)} $`;
+
+  labelBalance.textContent = formatCur(acc.balance, acc.locale, acc.currency);
 };
 
 const calcDisplaySummary = function(acc) {
   const incomes = acc.movements
   .filter(mov => mov > 0)
   .reduce((acc,mov) => acc + mov, 0);
-  labelSumIn.textContent = `${incomes.toFixed(2)}$`;
+  labelSumIn.textContent = formatCur(incomes, acc.locale, acc.currency);
   
   const out = acc.movements
   .filter(mov => mov < 0)
   .reduce((acc,mov) => acc + mov, 0);
-  labelSumOut.textContent = `${Math.abs(out).toFixed(2)}$`;
+  labelSumOut.textContent = formatCur(Math.abs(out), acc.locale, acc.currency);
   
   const interest = acc.movements
   .filter(move => move > 0)
   .map(deposit => deposit * acc.interestRate / 100)
   .filter((int) => int >= 1)
   .reduce((acc, int) => acc + int, 0);
-  labelSumInterest.textContent = `${interest.toFixed(2)}$`;
+  labelSumInterest.textContent = formatCur(interest, acc.locale, acc.currency);
 };
 
 const displayMovements = function(acc, sort = false) {
@@ -159,16 +171,17 @@ const displayMovements = function(acc, sort = false) {
   const moves = sort ? acc.movements.slice().sort((a,b) => a - b) : acc.movements;
   
   moves.forEach((movement,index) => {
-    let date = new Date(acc.movementsDates[index]);
-    let displayDate = formatMovementDate(date);
+    const date = new Date(acc.movementsDates[index]);
+    const displayDate = formatMovementDate(date, acc.locale);
 
-    let type = (movement > 0 ) ? "deposit" : "withdrawal";
+    const type = (movement > 0 ) ? "deposit" : "withdrawal";
+    const formattedMov = formatCur(movement, acc.locale, acc.currency);
 
     const html = `
     <div class="movements__row">
     <div class="movements__type movements__type--${type}">${index + 1} ${type}</div>
     <div class="movements__date">${displayDate}</div>
-    <div class="movements__value">${movement.toFixed(2)}$</div>
+    <div class="movements__value">${formattedMov}</div>
     </div>
     `;
     
@@ -176,25 +189,44 @@ const displayMovements = function(acc, sort = false) {
   });
 };
 
-const formatMovementDate = function(date) {
+const formatMovementDate = function(date, locale) {
   const calcDaysPassed = (date1, date2) => Math.round(Math.abs((date2 - date1)/(1000 * 60**2 * 24)));
 
   const daysPassed = calcDaysPassed(new Date(), date);
-  console.log(daysPassed);
 
   if (daysPassed === 0) return "Today";
   if (daysPassed === 1) return "Yesterday";
   if (daysPassed <=  7) return `${daysPassed} days ago`;
-  const day = `${date.getDate()}`.padStart(2, 0);
-  const month = `${date.getMonth() + 1}`.padStart(2, 0);
-  const year = date.getFullYear();
-    
-  return `${day}/${month}/${year}`;
+
+  return new Intl.DateTimeFormat(locale).format(date);
 };
 
 //--------USER STATE-----------//
-let currentAccount;
+let currentAccount, timer;
 let sorted = false;
+
+const startLogoutTimer = function(){
+  const tick = function(){
+    const min = String(Math.trunc(time / 60)).padStart(2, 0);
+    const sec = String(time % 60).padStart(2, 0);
+    
+    labelTimer.textContent = `${min}:${sec}`; 
+
+    if (time === 0) {
+      clearInterval(timer);
+      containerApp.style.opacity = 0;
+      labelWelcome.textContent = "Log in to get started";
+    };
+    time-- ;
+  };
+
+  let time = 300;
+
+  tick();
+  const timer = setInterval(tick, 1000);
+
+  return timer;
+}
 
 //--------EVENT HANDLERS--------------//
 btnLogin.addEventListener("click", (e) => {
@@ -211,16 +243,21 @@ btnLogin.addEventListener("click", (e) => {
     inputLoginPin.blur();
     inputLoginUsername.blur();
 
-    //Set date
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, 0);
-    const day = `${date.getDate()}`.padStart(2, 0);
-    const hour = `${date.getHours()}`.padStart(2, 0);
-    const min = `${date.getMinutes()}`.padStart(2,0);
+    const now = new Date();
+    const options = {
+      hour: "numeric",
+      minute: "numeric",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      weekday: "long"
+    };
 
-    labelDate.textContent = `${day}/${month}/${year} ${hour}:${min}`;
+    labelDate.textContent = new Intl.DateTimeFormat(currentAccount.locale, options).format(now);
     
+    if (timer) clearInterval(timer);
+
+    timer = startLogoutTimer();
     updateUI(currentAccount);
   };
 });
@@ -228,10 +265,12 @@ btnLogin.addEventListener("click", (e) => {
 
 btnTransfer.addEventListener("click", (e) => {
   e.preventDefault();
+
   const amount = +inputTransferAmount.value;
   const receiverAcc = accounts.find(acc => acc.username === inputTransferTo.value);
   
   if (amount > 0 && receiverAcc && currentAccount.balance >= amount && receiverAcc?.username !== currentAccount.username){
+
     //Doing transfer
     currentAccount.movements.push(-amount);
     receiverAcc.movements.push(amount);
@@ -242,8 +281,11 @@ btnTransfer.addEventListener("click", (e) => {
     
     //Update UI
     updateUI(currentAccount);
-  };
 
+    //Reset timer
+    clearInterval(timer);
+    timer = startLogoutTimer();
+  };
   inputTransferAmount.value = inputTransferTo.value = "";
 });
 
@@ -252,25 +294,33 @@ btnLoan.addEventListener("click",(e) => {
   const loanAmount = Math.floor(inputLoanAmount.value);
   
   if (loanAmount > 0 && currentAccount.movements.some(move => move >= loanAmount / 10)){
-    //Add movement
-    currentAccount.movements.push(loanAmount);
-    
-    //Add loan date
-    currentAccount.movementsDates.push(new Date().toISOString());
+    setTimeout(function() {
+      //Add movement
+      currentAccount.movements.push(loanAmount);
+      
+      //Add loan date
+      currentAccount.movementsDates.push(new Date().toISOString());
 
-    //Update UI
-    updateUI(currentAccount);
+      //Update UI
+      updateUI(currentAccount);
 
-    //Lost focus
-    inputLoanAmount.blur();
-  }
+      //Lost focus
+      inputLoanAmount.blur();
+
+      //Reset timer
+      clearInterval(timer);
+      timer = startLogoutTimer();
+    }, 2500);
+  };
   inputLoanAmount.value = "";
 });
 
 btnClose.addEventListener("click",(e) => {
   e.preventDefault();
   if (currentAccount.pin === +inputClosePin.value && currentAccount.username === inputCloseUsername.value) {
+
     let i = accounts.findIndex(acc => acc.username === currentAccount.username);
+
     //Delete account
     accounts.splice(i,1);
 
@@ -279,10 +329,13 @@ btnClose.addEventListener("click",(e) => {
 
     //Welcome messagge
     labelWelcome.textContent = "Log in to get started";
-  };
+    inputClosePin.blur();
+    inputCloseUsername.blur();
+    };
+
   //Clean fields
   inputClosePin.value = inputCloseUsername.value = "";
-})
+});
 
 btnSort.addEventListener("click",(e) => {
     e.preventDefault();
